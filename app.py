@@ -5,7 +5,7 @@ import json
 import urllib.parse
 from datetime import datetime
 
-# --- 1. 物理数据库初始化 ---
+# --- 1. 数据持久化 ---
 USER_DB = "users_data.json"
 PENDING_DB = "pending.json"
 LOG_DB = "op_logs.json"
@@ -21,124 +21,120 @@ def save_json(file, data):
     with open(file, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False)
 
 # --- 2. 界面配置 ---
-st.set_page_config(page_title="QIANDU Global Command V50", layout="wide")
+st.set_page_config(page_title="QIANDU Global Command V6.0", layout="wide")
 
-# --- 3. 登录与注册逻辑 ---
+# --- 3. 登录逻辑：物理双通道 ---
 if "auth_ok" not in st.session_state:
-    st.title("🛡️ QIANDU 全球指挥终端 V50.0")
-    t1, t2 = st.tabs(["🔐 员工登录", "📝 账号申请"])
+    st.title("🏙️ QIANDU 全球指挥终端 V6.0")
     
-    with t1:
-        u = st.text_input("账号", key="login_u")
-        p = st.text_input("授权密码", type="password", key="login_p")
-        if st.button("立即进入系统", use_container_width=True):
-            # --- 创始人超级通行证：物理锁死 ---
-            if u == "admin" and p == "666888":
+    # 物理隔离：创始人 vs 员工
+    access_type = st.radio("请选择身份通道", ["👤 员工入口", "🚀 指挥官入口"], horizontal=True)
+    
+    if access_type == "🚀 指挥官入口":
+        st.subheader("创始人专属通道")
+        boss_p = st.text_input("指挥官密钥", type="password")
+        if st.button("激活指挥权限", use_container_width=True):
+            if boss_p == "666888":  # 此处为您设定的唯一密码
                 st.session_state.auth_ok = True
-                st.session_state.user = "admin"
+                st.session_state.user = "Founder"
                 st.session_state.role = "boss"
                 st.rerun()
-            
-            # --- 普通员工逻辑 ---
-            users = load_json(USER_DB, {})
-            if u in users and users[u]["pwd"] == p:
-                st.session_state.auth_ok = True
-                st.session_state.user = u
-                st.session_state.role = "staff"
-                st.rerun()
             else:
-                st.error("❌ 账号或密码错误，或账号尚未审核通过。")
+                st.error("密钥错误")
                 
-    with t2:
-        new_u = st.text_input("拟申请用户名")
-        new_p = st.text_input("拟设置密码", type="password")
-        if st.button("提交注册申请"):
-            if new_u:
+    else:
+        tab1, tab2 = st.tabs(["🔐 员工登录", "📝 账号申请"])
+        with tab1:
+            u = st.text_input("员工账号")
+            p = st.text_input("密码", type="password")
+            if st.button("登录"):
+                users = load_json(USER_DB, {})
+                if u in users and users[u]["pwd"] == p:
+                    st.session_state.auth_ok = True
+                    st.session_state.user = u
+                    st.session_state.role = "staff"
+                    st.rerun()
+                else:
+                    st.error("验证失败，请确认密码或审核状态")
+        with tab2:
+            new_u = st.text_input("拟用账号")
+            new_p = st.text_input("拟用密码", type="password")
+            if st.button("提交申请"):
                 pending = load_json(PENDING_DB, {})
-                pending[new_u] = {"pwd": new_p, "time": datetime.now().strftime("%Y-%m-%d %H:%M")}
+                pending[new_u] = {"pwd": new_p, "time": datetime.now().strftime("%Y-%m-%d")}
                 save_json(PENDING_DB, pending)
-                st.success(f"✅ 申请已提交！请通知创始人通过。")
+                st.success("申请成功！请联系指挥官审核")
 
 else:
     # --- 4. 内部主系统 ---
-    st.sidebar.title(f"👤 {st.session_state.user}")
+    st.sidebar.title(f"指挥官: {st.session_state.user}" if st.session_state.role=="boss" else f"员工: {st.session_state.user}")
     
-    # 动态功能路由
     menu = ["📊 实战情报中心", "🔍 全域搜索"]
     if st.session_state.role == "boss":
         menu += ["⚙️ 后台审核", "📜 操作日志"]
     
     nav = st.sidebar.radio("系统导航", menu)
 
-    # 1. 情报与搜索模块
+    # 1. 数据展示与搜索逻辑
     if nav in ["📊 实战情报中心", "🔍 全域搜索"]:
-        st.title("📊 QIANDU 全球情报分析矩阵")
+        st.title("📊 QIANDU 情报中心")
         files = [f for f in os.listdir('.') if f.endswith(('.csv', '.xlsx'))]
         
         if not files:
-            st.info("💡 请在 GitHub 仓库上传 Excel 数据文件（.xlsx）")
+            st.info("💡 请在 GitHub 上传商户 Excel")
         else:
-            sel_f = st.sidebar.selectbox("📂 选择数据库文件", files)
+            sel_f = st.sidebar.selectbox("📂 数据库选择", files)
             df = pd.read_excel(sel_f) if sel_f.endswith('.xlsx') else pd.read_csv(sel_f)
             df = df.dropna(how='all')
 
-            # 搜索框：核心优化
-            search_q = st.text_input("🔎 搜索店名、电话、地址关键词 (输入后按回车)", placeholder="例如：Wholesale 或 HCM")
+            # 搜索增强：针对性匹配
+            q = st.text_input("🔎 搜索（输入店名、电话或地址）")
+            if q:
+                # 解决“不显示文字”的关键：将所有内容转为字符串再搜索
+                df = df[df.apply(lambda r: q.lower() in r.astype(str).str.lower().str.cat(), axis=1)]
+                # 记录日志
+                logs = load_json(LOG_DB, [])
+                logs.insert(0, {"时间": datetime.now().strftime("%H:%M:%S"), "用户": st.session_state.user, "搜索": q})
+                save_json(LOG_DB, logs[:200])
+
+            st.write(f"共发现 {len(df)} 条记录")
             
-            if search_q:
-                # 全字段模糊匹配
-                mask = df.apply(lambda row: row.astype(str).str.contains(search_q, case=False, na=False).any(), axis=1)
-                df = df[mask]
-            
-            st.success(f"找到 {len(df)} 条相关情报")
-            
-            # 卡片展示
+            # 卡片排版
             cols = list(df.columns)
-            c_name = st.sidebar.selectbox("🏠 确认【店名】列", cols, index=0)
-            c_phone = st.sidebar.selectbox("📞 确认【电话】列", cols, index=min(1, len(cols)-1))
+            c_n = st.sidebar.selectbox("🏠 店名列", cols, index=0)
+            c_p = st.sidebar.selectbox("📞 电话列", cols, index=min(1, len(cols)-1))
             
             grid = st.columns(2)
             for i, (idx, row) in enumerate(df.head(100).iterrows()):
-                name, phone = str(row[c_name]), str(row[c_phone])
+                name, phone = str(row[c_n]), str(row[c_p])
                 with grid[i % 2]:
                     with st.container(border=True):
                         st.markdown(f"### {name}")
-                        st.write(f"📞 电话: `{phone}`")
-                        st.caption(f"📍 地址: {row.get('Address','-')}")
-                        
-                        # 越南 Zalo 自动适配逻辑
+                        st.write(f"📞 `{phone}`")
                         raw_p = "".join(filter(str.isdigit, phone))
                         z_p = "84" + raw_p[1:] if raw_p.startswith('0') else raw_p
                         st.link_button("🔵 Zalo 洽谈", f"https://zalo.me/{z_p}")
 
-    # 2. 后台审核 (仅 Boss)
+    # 2. 只有指挥官能看的：后台审核
     elif nav == "⚙️ 后台审核":
-        st.title("⚙️ 员工账号审批")
+        st.title("⚙️ 员工审批")
         pending = load_json(PENDING_DB, {})
-        if not pending:
-            st.info("暂无新申请")
-        else:
-            for u, info in list(pending.items()):
-                c1, c2, c3 = st.columns([2,1,1])
-                c1.write(f"**{u}** (申请日期: {info['time']})")
-                if c2.button("✅ 批准", key=f"y_{u}"):
-                    users = load_json(USER_DB, {})
-                    users[u] = {"pwd": info["pwd"], "role": "staff", "status": "active"}
-                    save_json(USER_DB, users)
-                    del pending[u]
-                    save_json(PENDING_DB, pending)
-                    st.rerun()
-                if c3.button("❌ 拒绝", key=f"n_{u}"):
-                    del pending[u]
-                    save_json(PENDING_DB, pending)
-                    st.rerun()
+        for u, info in list(pending.items()):
+            col1, col2 = st.columns([3, 1])
+            col1.write(f"申请账号: {u}")
+            if col2.button("✅ 批准", key=u):
+                users = load_json(USER_DB, {})
+                users[u] = {"pwd": info["pwd"]}
+                save_json(USER_DB, users)
+                del pending[u]
+                save_json(PENDING_DB, pending)
+                st.rerun()
 
-    # 3. 日志 (仅 Boss)
+    # 3. 操作日志
     elif nav == "📜 操作日志":
-        st.title("📜 员工行为审计")
-        logs = load_json(LOG_DB, [])
-        st.table(logs)
+        st.title("📜 员工行为监控")
+        st.table(load_json(LOG_DB, []))
 
-    if st.sidebar.button("🚪 安全退出"):
+    if st.sidebar.button("🚪 退出"):
         st.session_state.auth_ok = False
         st.rerun()
