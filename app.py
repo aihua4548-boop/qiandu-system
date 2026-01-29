@@ -6,7 +6,7 @@ import re
 import urllib.parse
 from datetime import datetime, timedelta
 
-# --- 1. 核心底座：数据安全与时区 ---
+# --- 1. 核心架构：时区与深度审计 ---
 def get_local_time():
     return datetime.utcnow() + timedelta(hours=7)
 
@@ -27,38 +27,39 @@ def add_mission_log(user, action, target="-", score=1):
     logs = load_data("logs")
     current_time = get_local_time()
     risk = "✅ 安全"
-    # 风控：检测 1 秒内重复点击
-    if logs and logs[0]['操作员'] == user:
+    if logs and logs[0].get('操作员') == user:
         if (current_time - datetime.strptime(logs[0]['时间'], "%Y-%m-%d %H:%M:%S")).total_seconds() < 1.0:
             risk = "🚨 频率异常"; score = -50
+    # 统一列名：状态
     logs.insert(0, {"时间": current_time.strftime("%Y-%m-%d %H:%M:%S"), "操作员": user, "动作": action, "目标": target, "战力分": score, "状态": risk})
     save_data("logs", logs[:5000])
 
-# --- 2. 核心算法：AI 战略画像与脱敏 ---
+# --- 2. 隐私保护核心：号码脱敏 ---
 def mask_phone(phone_raw, role):
     raw = re.sub(r'\D', '', str(phone_raw))
     if role == "boss": return raw 
     return f"{raw[:3]}****{raw[-4:]}" if len(raw) > 7 else "****"
 
-def qiandu_ai_v100(name, addr):
+# --- 3. QIANDU AI 究极大脑 V120 ---
+def qiandu_ultimate_ai(name, addr):
     ctx = (str(name) + " " + str(addr)).lower()
-    is_ws = any(k in ctx for k in ["wholesale", "sỉ", "批发", "warehouse"])
-    is_prime = any(k in ctx for k in ["district 1", "quận 1", "myeongdong", "sukhumvit", "jakarta pusat"])
-    is_med = any(k in ctx for k in ["spa", "clinic", "pharmacy", "nhà thuốc", "med", "derma"])
+    is_ws = any(k in ctx for k in ["wholesale", "sỉ", "批发", "warehouse", "distributor"])
+    is_prime = any(k in ctx for k in ["district 1", "quận 1", "myeongdong", "sukhumvit", "aeon"])
+    is_med = any(k in ctx for k in ["spa", "clinic", "pharmacy", "derma", "med"])
 
     if is_ws:
-        return "🏗️ 批发巨头", "谈货柜锁价，推 Jmella/SNP。", "Chào bạn, bên mình sỉ container giá gốc Hàn..."
-    if is_med:
-        return "🏥 医美院线", "谈 Leaders 修复报告。不打价格战。", "Chào chị, bên em có dòng Leaders phục hồi da chuyên sâu..."
-    if is_prime:
-        return "💎 核心旗舰", "谈 meloMELI 颜值引流，对冲地租。", "Shop ở vị trí đẹp nhập meloMELI sẽ tăng khách check-in..."
-    return "🏪 常规零售", "谈补货快、一件起批。", "Bên mình có sẵn hàng hot nhất, giao ngay..."
+        return {"角色": "🏗️ 供应链巨头", "预期": "5-10%", "建议": "谈货柜锁价、谈现货稳定。展示QIANDU出口报关单。推Jmella全系列。", "话术": "Chào anh, QIANDU sẵn container SNP/Jmella giá gốc, hỗ trợ đủ chứng từ..."}
+    elif is_med:
+        return {"角色": "🏥 专业医美院线", "预期": "35-55%", "建议": "推Leaders修复款。谈成分与背书，避开价格战。强调‘非红海渠道’保护。", "话术": "Chào chị, bên em chuyên Leaders Clinic cho Spa, phục hồi da cực tốt..."}
+    elif is_prime:
+        return {"角色": "💎 核心地段旗舰", "预期": "25-45%", "建议": "地租极贵，核心痛点是到店转化。推meloMELI颜值款，谈引流支持与视觉展示。", "话术": "Shop ở vị trí đẹp nhập meloMELI sẽ hút khách check-in tăng doanh thu..."}
+    return {"角色": "🏪 常规零售终端", "预期": "20-35%", "建议": "谈‘一件起批’、‘极速补货’。主推当月热销爆款面膜。降低囤货压力。", "话术": "Bên mình có sẵn mẫu hot nhất, nhập ít cũng giá sỉ, giao ngay trong ngày..."}
 
-# --- 3. 全球路由系统 ---
+# --- 4. 全球路由系统 ---
 def get_comm_route(phone_raw, name_addr):
     nums = re.sub(r'\D', '', str(phone_raw))
     ctx = str(name_addr).lower()
-    if nums.startswith('7') or nums.startswith('971') or "moscow" in ctx:
+    if nums.startswith('7') or nums.startswith('971') or "moscow" in ctx or "dubai" in ctx:
         return "Global ✈️", f"https://t.me/+{nums}", "Telegram"
     if nums.startswith('84') or "vietnam" in ctx:
         p = nums[1:] if nums.startswith('0') else nums[2:] if nums.startswith('84') else nums
@@ -67,98 +68,71 @@ def get_comm_route(phone_raw, name_addr):
         return "Line 🚀", f"https://line.me/R/ti/p/~+{nums}", "Line"
     return "Global 🌐", f"https://wa.me/{nums}", "WhatsApp"
 
-# --- 4. 界面逻辑：双向导视验证网关 ---
-st.set_page_config(page_title="QIANDU COMMAND V100", layout="wide")
+# --- 5. 界面逻辑 ---
+st.set_page_config(page_title="QIANDU BI V120", layout="wide", page_icon="🏢")
 
 if "auth_ok" not in st.session_state:
-    st.markdown("<h1 style='text-align: center;'>🛡️ QIANDU 全球指挥终端 V100.0</h1>", unsafe_allow_html=True)
-    
-    # 顶部身份选择器
-    role_tab = st.radio("请选择访问通道：", ["👤 员工入口", "🛰️ 指挥官中心"], horizontal=True, label_visibility="collapsed")
-    
+    st.markdown("<h1 style='text-align: center;'>🛡️ QIANDU 全球智慧指挥终端 V120.0</h1>", unsafe_allow_html=True)
+    role_tab = st.radio("访问通道", ["👤 员工入口", "🛰️ 指挥官中心"], horizontal=True, label_visibility="collapsed")
     if role_tab == "🛰️ 指挥官中心":
-        with st.container(border=True):
-            st.subheader("创始人最高权限验证")
-            boss_pwd = st.text_input("请输入密钥", type="password", key="boss_key")
-            if st.button("激活权限", use_container_width=True):
-                if boss_pwd == "666888":
-                    st.session_state.update({"auth_ok": True, "user": "Founder", "role": "boss"})
-                    st.rerun()
-                else: st.error("密钥错误")
-    
+        boss_pwd = st.text_input("请输入密钥", type="password", key="boss_pwd")
+        if st.button("激活权限", use_container_width=True):
+            if boss_pwd == "666888":
+                st.session_state.update({"auth_ok": True, "user": "Founder", "role": "boss"}); st.rerun()
     else:
-        # 核心修复：在这里提供 登录/申请 的明确入口
         tab_login, tab_reg = st.tabs(["🔐 员工登录", "📝 新账号申请"])
-        
         with tab_login:
-            u = st.text_input("账号", key="login_u")
-            p = st.text_input("密码", type="password", key="login_p")
-            if st.button("进入系统", use_container_width=True, key="login_btn"):
+            u, p = st.text_input("账号", key="l_u"), st.text_input("密码", type="password", key="l_p")
+            if st.button("进入系统", use_container_width=True):
                 users = load_data("users")
                 if u in users and users[u]["pwd"] == p:
-                    st.session_state.update({"auth_ok": True, "user": u, "role": "staff"})
-                    add_mission_log(u, "登录系统", score=0)
-                    st.rerun()
-                else: st.error("登录失败：需等待批准或账号密码有误")
-        
+                    st.session_state.update({"auth_ok": True, "user": u, "role": "staff"}); add_mission_log(u, "登录"); st.rerun()
+                else: st.error("登录失败")
         with tab_reg:
-            st.info("入职申请提交后，请联系指挥官（Founder）在管理后台手动批准。")
-            nu = st.text_input("拟申请账号名", key="reg_u")
-            np = st.text_input("拟设置密码", type="password", key="reg_p")
-            if st.button("提交申请", use_container_width=True, key="reg_btn"):
-                pnd = load_data("pending")
-                pnd[nu] = {"pwd": np, "time": get_local_time().strftime("%Y-%m-%d %H:%M")}
-                save_data("pending", pnd)
-                st.success(f"申请已提交！账号名：{nu}。请等待审核。")
+            nu, np = st.text_input("拟申请账号", key="r_u"), st.text_input("设置密码", type="password", key="r_p")
+            if st.button("提交入职申请", use_container_width=True):
+                pnd = load_data("pending"); pnd[nu] = {"pwd": np, "time": get_local_time().strftime("%Y-%m-%d %H:%M")}
+                save_data("pending", pnd); st.success("申请提交成功，请联系指挥官。")
 
 else:
-    # --- 5. 内部情报决策矩阵 ---
     st.sidebar.title(f"👤 {st.session_state.user}")
-    if st.session_state.role == "boss":
-        st.sidebar.divider()
-        pnd_count = len(load_data("pending"))
-        if pnd_count > 0: st.sidebar.warning(f"🔔 有 {pnd_count} 个新申请待审核")
-    
     menu = ["📊 情报矩阵", "⚙️ 团队战力", "📜 审计日志"] if st.session_state.role == "boss" else ["📊 情报矩阵"]
     nav = st.sidebar.radio("导航", menu)
 
     if nav == "📊 情报矩阵":
-        st.title("📊 QIANDU 深度商业情报矩阵")
+        st.title("📊 QIANDU 深度商业情报中心 (V120 究极版)")
         files = [f for f in os.listdir('.') if f.endswith(('.csv', '.xlsx'))]
         if files:
             sel_f = st.sidebar.selectbox("数据源", files)
             df = pd.read_excel(sel_f) if sel_f.endswith('.xlsx') else pd.read_csv(sel_f)
             df = df.dropna(how='all').fillna('-')
-            
-            # 列映射
             cols = list(df.columns)
             c_n, c_p, c_a = st.sidebar.selectbox("店名列", cols, index=0), st.sidebar.selectbox("电话列", cols, index=1), st.sidebar.selectbox("地址列", cols, index=2)
             
-            q = st.text_input("🔎 搜店名、地址、商圈词")
+            q = st.text_input("🔎 搜店名、地址、商圈词（AI 自动触发地段与身份推演）")
             if q: df = df[df.apply(lambda r: q.lower() in r.astype(str).str.lower().str.cat(), axis=1)]
 
             grid = st.columns(2); remarks = load_data("remarks")
             for i, (idx, row) in enumerate(df.head(100).iterrows()):
                 name, phone, addr = str(row[c_n]), str(row[c_p]), str(row[c_a])
-                # AI、脱敏、路由
-                role, suggest, script = qiandu_ai_v100(name, addr)
+                intel = qiandu_ultimate_ai(name, addr)
                 d_phone = mask_phone(phone, st.session_state.role)
                 country, chat_link, tool = get_comm_route(phone, name + addr)
                 
                 with grid[i % 2]:
                     with st.container(border=True):
                         st.markdown(f"### {name}")
-                        cl1, cl2 = st.columns([1, 1.3])
+                        cl1, cl2 = st.columns([1, 1.4])
                         with cl1:
                             st.write(f"🌍 区域: **{country}**")
                             st.write(f"📞 号码: `{d_phone}`")
-                            st.link_button(f"🚀 发起 {tool} 谈判", chat_link, type="primary", use_container_width=True)
+                            st.link_button(f"🚀 发起 {tool} 洽谈", chat_link, type="primary", use_container_width=True)
                             if st.button(f"📑 记入战力-{idx}", use_container_width=True):
                                 add_mission_log(st.session_state.user, f"发起联系({tool})", name, 10)
                         with cl2:
-                            st.write(f"🏢 画像: **{role}**")
-                            st.info(f"💡 AI策略: {suggest}")
-                            with st.expander("📝 破冰话术"): st.code(script, language="markdown")
+                            st.write(f"🏢 画像: **{intel['角色']}** (预估:{intel['预期']})")
+                            st.info(f"💡 AI建议: {intel['建议']}")
+                            with st.expander("📝 破冰话术"): st.code(intel['话术'], language="markdown")
                         
                         sq = urllib.parse.quote(name)
                         sc1, sc2, sc3 = st.columns(3)
@@ -166,9 +140,7 @@ else:
                         sc2.link_button("Ins", f"https://www.instagram.com/explore/tags/{name.replace(' ','')}/", use_container_width=True)
                         sc3.link_button("TK", f"https://www.tiktok.com/search?q={sq}", use_container_width=True)
 
-                        # 备注
-                        st.divider()
-                        rem = remarks.get(name, {"text": "暂无进展", "user": "-", "time": "-"})
+                        st.divider(); rem = remarks.get(name, {"text": "暂无进展", "user": "-", "time": "-"})
                         st.success(f"最新进展: {rem['text']} ({rem['user']})")
                         n_note = st.text_input("更新跟进进展", key=f"ni_{idx}")
                         if st.button("保存备注", key=f"nb_{idx}"):
@@ -177,26 +149,27 @@ else:
                                 save_data("remarks", remarks); add_mission_log(st.session_state.user, "更新备注", name, 5); st.rerun()
 
     elif nav == "⚙️ 团队战力":
-        st.title("⚙️ 团队实战看板")
-        # 战力图
+        st.title("⚙️ QIANDU 战力看板")
         ldf = pd.DataFrame(load_data("logs"))
         if not ldf.empty:
             ldf['战力分'] = pd.to_numeric(ldf['战力分'], errors='coerce').fillna(0)
             st.bar_chart(ldf.groupby("操作员")["战力分"].sum().sort_values(ascending=False))
-        # 审核
         st.divider(); pnd = load_data("pending")
         for u, info in list(pnd.items()):
             c1, c2 = st.columns([3, 1])
-            c1.write(f"👤 {u} (申请时间: {info['time']})")
-            if c2.button("批准准入", key=f"y_{u}"):
+            c1.write(f"👤 {u} ({info['time']})")
+            if c2.button("批准", key=f"y_{u}"):
                 users = load_data("users"); users[u] = {"pwd": info["pwd"], "status": "active"}
                 save_data("users", users); del pnd[u]; save_data("pending", pnd); st.rerun()
 
     elif nav == "📜 审计日志":
-        st.title("📜 深度行动日志")
+        st.title("📜 行动审计日志")
         ldf = pd.DataFrame(load_data("logs"))
         if not ldf.empty:
-            def risk_color(x): return 'background-color: #ff4b4b; color: white' if "🚨" in str(x) else ''
-            st.dataframe(ldf.style.applymap(risk_color, subset=['状态']), use_container_width=True)
+            # 核心修复：检查列名是否存在，不存在则不应用样式
+            if '状态' in ldf.columns:
+                st.dataframe(ldf.style.applymap(lambda x: 'background-color: #ff4b4b; color: white' if "🚨" in str(x) else '', subset=['状态']), use_container_width=True)
+            else:
+                st.dataframe(ldf, use_container_width=True)
 
-    if st.sidebar.button("🚪 安全退出系统"): st.session_state.clear(); st.rerun()
+    if st.sidebar.button("安全退出系统"): st.session_state.clear(); st.rerun()
