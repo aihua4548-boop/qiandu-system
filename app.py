@@ -20,7 +20,7 @@ def save_json(file, data):
 
 # 初始化数据
 if 'users' not in st.session_state:
-    st.session_state.users = load_json(USER_DB, {"admin": {"pwd": "666888", "role": "boss", "status": "active"}})
+    st.session_state.users = load_json(USER_DB, {"admin": {"pwd": "888888", "role": "boss", "status": "active"}})
 if 'pending_users' not in st.session_state:
     st.session_state.pending_users = load_json("pending.json", {})
 
